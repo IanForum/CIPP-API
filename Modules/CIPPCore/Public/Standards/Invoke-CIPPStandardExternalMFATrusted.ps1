@@ -25,7 +25,7 @@ function Invoke-CIPPStandardExternalMFATrusted {
         UPDATECOMMENTBLOCK
             Run the Tools\Update-StandardsComments.ps1 script to update this comment block
     .LINK
-        https://docs.cipp.app/user-documentation/tenant/standards/list-standards/entra-aad-standards#low-impact
+        https://docs.cipp.app/user-documentation/tenant/standards/list-standards
     #>
 
     param($Tenant, $Settings)
@@ -43,7 +43,7 @@ function Invoke-CIPPStandardExternalMFATrusted {
     # Input validation
     if (([string]::IsNullOrWhiteSpace($state) -or $state -eq 'Select a value') -and ($Settings.remediate -eq $true -or $Settings.alert -eq $true)) {
         Write-LogMessage -API 'Standards' -tenant $Tenant -message 'ExternalMFATrusted: Invalid state parameter set' -sev Error
-        Return
+        return
     }
 
     if ($Settings.remediate -eq $true) {
@@ -66,7 +66,8 @@ function Invoke-CIPPStandardExternalMFATrusted {
     }
     if ($Settings.report -eq $true) {
         $state = $ExternalMFATrusted.inboundTrust.isMfaAccepted ? $true : $ExternalMFATrusted.inboundTrust
-        Set-CIPPStandardsCompareField -FieldName 'standards.ExternalMFATrusted' -FieldValue $ExternalMFATrusted.inboundTrust.isMfaAccepted -TenantFilter $Tenant
+        $ReportState = $ExternalMFATrusted.inboundTrust.isMfaAccepted -eq $WantedState
+        Set-CIPPStandardsCompareField -FieldName 'standards.ExternalMFATrusted' -FieldValue $ReportState -TenantFilter $Tenant
         Add-CIPPBPAField -FieldName 'ExternalMFATrusted' -FieldValue $ExternalMFATrusted.inboundTrust.isMfaAccepted -StoreAs bool -Tenant $Tenant
     }
 

@@ -28,19 +28,25 @@ function Invoke-CIPPStandardSPEmailAttestation {
         UPDATECOMMENTBLOCK
             Run the Tools\Update-StandardsComments.ps1 script to update this comment block
     .LINK
-        https://docs.cipp.app/user-documentation/tenant/standards/list-standards/sharepoint-standards#medium-impact
+        https://docs.cipp.app/user-documentation/tenant/standards/list-standards
     #>
 
     param($Tenant, $Settings)
+    $TestResult = Test-CIPPStandardLicense -StandardName 'SPEmailAttestation' -TenantFilter $Tenant -RequiredCapabilities @('SHAREPOINTWAC', 'SHAREPOINTSTANDARD', 'SHAREPOINTENTERPRISE', 'ONEDRIVE_BASIC', 'ONEDRIVE_ENTERPRISE')
 
-    $CurrentState = Get-CIPPSPOTenant -TenantFilter $Tenant | Select-Object -Property EmailAttestationReAuthDays, EmailAttestationRequired
+    if ($TestResult -eq $false) {
+        Write-Host "We're exiting as the correct license is not present for this standard."
+        return $true
+    } #we're done.
+
+    $CurrentState = Get-CIPPSPOTenant -TenantFilter $Tenant | Select-Object -Property _ObjectIdentity_, TenantFilter, EmailAttestationReAuthDays, EmailAttestationRequired
 
     $StateIsCorrect = ($CurrentState.EmailAttestationReAuthDays -eq [int]$Settings.Days) -and
     ($CurrentState.EmailAttestationRequired -eq $true)
 
     if ($Settings.remediate -eq $true) {
         if ($StateIsCorrect -eq $true) {
-            Write-LogMessage -API 'Standards' -Tenant $Tenant -Message 'SharePoint reauthentication with verification code is already restricted.' -Sev Info
+            Write-LogMessage -API 'Standards' -Tenant $Tenant -Message 'SharePoint re-authentication with verification code is already restricted.' -Sev Info
         } else {
             $Properties = @{
                 EmailAttestationReAuthDays = [int]$Settings.Days
@@ -48,25 +54,27 @@ function Invoke-CIPPStandardSPEmailAttestation {
             }
 
             try {
-                $Response = Get-CIPPSPOTenant -TenantFilter $Tenant | Set-CIPPSPOTenant -Properties $Properties
+                $Response = $CurrentState | Set-CIPPSPOTenant -Properties $Properties
                 if ($Response.ErrorInfo.ErrorMessage) {
                     $ErrorMessage = Get-NormalizedError -Message $Response.ErrorInfo.ErrorMessage
-                    Write-LogMessage -API 'Standards' -Tenant $Tenant -Message "Failed to set reauthentication with verification code restriction. Error: $ErrorMessage" -Sev Error
+                    Write-LogMessage -API 'Standards' -Tenant $Tenant -Message "Failed to set re-authentication with verification code restriction. Error: $ErrorMessage" -Sev Error
                 } else {
-                    Write-LogMessage -API 'Standards' -Tenant $Tenant -Message 'Successfully set reauthentication with verification code restriction.' -Sev Info
+                    Write-LogMessage -API 'Standards' -Tenant $Tenant -Message 'Successfully set re-authentication with verification code restriction.' -Sev Info
                 }
             } catch {
                 $ErrorMessage = Get-NormalizedError -Message $_.Exception.Message
-                Write-LogMessage -API 'Standards' -Tenant $Tenant -Message "Failed to set reauthentication with verification code restriction. Error: $ErrorMessage" -Sev Error
+                Write-LogMessage -API 'Standards' -Tenant $Tenant -Message "Failed to set re-authentication with verification code restriction. Error: $ErrorMessage" -Sev Error
             }
         }
     }
 
     if ($Settings.alert -eq $true) {
         if ($StateIsCorrect -eq $true) {
-            Write-LogMessage -API 'Standards' -Tenant $Tenant -Message 'Reauthentication with verification code is restricted.' -Sev Info
+            Write-LogMessage -API 'Standards' -Tenant $Tenant -Message 'Re-authentication with verification code is restricted.' -Sev Info
         } else {
-            Write-LogMessage -API 'Standards' -Tenant $Tenant -Message 'Reauthentication with verification code is not restricted.' -Sev Alert
+            $Message = 'Re-authentication with verification code is not set to the desired value.'
+            Write-StandardsAlert -message $Message -object $CurrentState -tenant $Tenant -standardName 'SPEmailAttestation' -standardId $Settings.standardId
+            Write-LogMessage -API 'Standards' -Tenant $Tenant -Message $Message -Sev Alert
         }
     }
 

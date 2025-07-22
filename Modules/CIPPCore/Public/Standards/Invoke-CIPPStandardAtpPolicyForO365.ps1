@@ -27,11 +27,17 @@ function Invoke-CIPPStandardAtpPolicyForO365 {
         UPDATECOMMENTBLOCK
             Run the Tools\Update-StandardsComments.ps1 script to update this comment block
     .LINK
-        https://docs.cipp.app/user-documentation/tenant/standards/list-standards/defender-standards#low-impact
+        https://docs.cipp.app/user-documentation/tenant/standards/list-standards
     #>
 
     param($Tenant, $Settings)
+    $TestResult = Test-CIPPStandardLicense -StandardName 'AtpPolicyForO365' -TenantFilter $Tenant -RequiredCapabilities @('SHAREPOINTWAC', 'SHAREPOINTSTANDARD', 'SHAREPOINTENTERPRISE', 'ONEDRIVE_BASIC', 'ONEDRIVE_ENTERPRISE')
     ##$Rerun -Type Standard -Tenant $Tenant -Settings $Settings 'AtpPolicyForO365'
+
+    if ($TestResult -eq $false) {
+        Write-Host "We're exiting as the correct license is not present for this standard."
+        return $true
+    } #we're done.
     try {
         $CurrentState = New-ExoRequest -tenantid $Tenant -cmdlet 'Get-AtpPolicyForO365' |
         Select-Object EnableATPForSPOTeamsODB, EnableSafeDocs, AllowSafeDocsOpen
@@ -41,21 +47,21 @@ function Invoke-CIPPStandardAtpPolicyForO365 {
         }
     }
     $StateIsCorrect = ($CurrentState.EnableATPForSPOTeamsODB -eq $true) -and
-                      ($CurrentState.EnableSafeDocs -eq $true) -and
-                      ($CurrentState.AllowSafeDocsOpen -eq $Settings.AllowSafeDocsOpen)
+    ($CurrentState.EnableSafeDocs -eq $true) -and
+    ($CurrentState.AllowSafeDocsOpen -eq $Settings.AllowSafeDocsOpen)
 
     if ($Settings.remediate -eq $true) {
         if ($StateIsCorrect -eq $true) {
             Write-LogMessage -API 'Standards' -tenant $Tenant -message 'Atp Policy For O365 already set.' -sev Info
         } else {
-            $cmdparams = @{
+            $cmdParams = @{
                 EnableATPForSPOTeamsODB = $true
                 EnableSafeDocs          = $true
                 AllowSafeDocsOpen       = $Settings.AllowSafeDocsOpen
             }
 
             try {
-                New-ExoRequest -tenantid $Tenant -cmdlet 'Set-AtpPolicyForO365' -cmdparams $cmdparams -UseSystemMailbox $true
+                New-ExoRequest -tenantid $Tenant -cmdlet 'Set-AtpPolicyForO365' -cmdParams $cmdParams -UseSystemMailbox $true
                 Write-LogMessage -API 'Standards' -tenant $Tenant -message 'Updated Atp Policy For O365' -sev Info
             } catch {
                 $ErrorMessage = Get-NormalizedError -Message $_.Exception.Message

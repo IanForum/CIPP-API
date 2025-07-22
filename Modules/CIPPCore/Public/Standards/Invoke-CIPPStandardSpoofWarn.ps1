@@ -16,6 +16,7 @@ function Invoke-CIPPStandardSpoofWarn {
             "CIS"
         ADDEDCOMPONENT
             {"type":"autoComplete","multiple":false,"label":"Select value","name":"standards.SpoofWarn.state","options":[{"label":"Enabled","value":"enabled"},{"label":"Disabled","value":"disabled"}]}
+            {"type":"autoComplete","multiple":true,"creatable":true,"required":false,"label":"Enter allowed senders(domain.com, *.domain.com or test@domain.com)","name":"standards.SpoofWarn.AllowListAdd"}
         IMPACT
             Low Impact
         ADDEDDATE
@@ -28,10 +29,16 @@ function Invoke-CIPPStandardSpoofWarn {
         UPDATECOMMENTBLOCK
             Run the Tools\Update-StandardsComments.ps1 script to update this comment block
     .LINK
-        https://docs.cipp.app/user-documentation/tenant/standards/list-standards/exchange-standards#low-impact
+        https://docs.cipp.app/user-documentation/tenant/standards/list-standards
     #>
 
     param($Tenant, $Settings)
+    $TestResult = Test-CIPPStandardLicense -StandardName 'SpoofWarn' -TenantFilter $Tenant -RequiredCapabilities @('EXCHANGE_S_STANDARD', 'EXCHANGE_S_ENTERPRISE', 'EXCHANGE_LITE') #No Foundation because that does not allow powershell access
+
+    if ($TestResult -eq $false) {
+        Write-Host "We're exiting as the correct license is not present for this standard."
+        return $true
+    } #we're done.
 
     $CurrentInfo = (New-ExoRequest -tenantid $Tenant -cmdlet 'Get-ExternalInOutlook')
 

@@ -34,11 +34,17 @@ function Invoke-CIPPStandardintuneBrandingProfile {
         UPDATECOMMENTBLOCK
             Run the Tools\Update-StandardsComments.ps1 script to update this comment block
     .LINK
-        https://docs.cipp.app/user-documentation/tenant/standards/list-standards/intune-standards#low-impact
+        https://docs.cipp.app/user-documentation/tenant/standards/list-standards
     #>
 
     param($Tenant, $Settings)
+    $TestResult = Test-CIPPStandardLicense -StandardName 'intuneBrandingProfile' -TenantFilter $Tenant -RequiredCapabilities @('INTUNE_A', 'MDM_Services', 'EMS', 'SCCM', 'MICROSOFTINTUNEPLAN1')
     ##$Rerun -Type Standard -Tenant $Tenant -Settings $Settings 'intuneBrandingProfile'
+
+    if ($TestResult -eq $false) {
+        Write-Host "We're exiting as the correct license is not present for this standard."
+        return $true
+    } #we're done.
 
     $CurrentState = New-GraphGetRequest -Uri 'https://graph.microsoft.com/beta/deviceManagement/intuneBrandingProfiles/c3a59481-1bf2-46ce-94b3-66eec07a8d60' -tenantid $Tenant -AsApp $true
 
@@ -69,7 +75,7 @@ function Invoke-CIPPStandardintuneBrandingProfile {
             if ($Settings.onlineSupportSiteUrl) { $Body.onlineSupportSiteUrl = $Settings.onlineSupportSiteUrl }
             if ($Settings.privacyUrl) { $Body.privacyUrl = $Settings.privacyUrl }
 
-            $cmdparams = @{
+            $cmdParams = @{
                 tenantid    = $tenant
                 uri         = 'https://graph.microsoft.com/beta/deviceManagement/intuneBrandingProfiles/c3a59481-1bf2-46ce-94b3-66eec07a8d60'
                 AsApp       = $true
@@ -79,7 +85,7 @@ function Invoke-CIPPStandardintuneBrandingProfile {
             }
 
             try {
-                New-GraphPostRequest @cmdparams
+                New-GraphPostRequest @cmdParams
                 Write-LogMessage -API 'Standards' -tenant $tenant -message 'Successfully updated Intune Branding Profile' -sev Info
             } catch {
                 $ErrorMessage = Get-NormalizedError -Message $_.Exception.Message

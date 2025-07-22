@@ -27,10 +27,16 @@ function Invoke-CIPPStandardDisableOutlookAddins {
         UPDATECOMMENTBLOCK
             Run the Tools\Update-StandardsComments.ps1 script to update this comment block
     .LINK
-        https://docs.cipp.app/user-documentation/tenant/standards/list-standards/exchange-standards#medium-impact
+        https://docs.cipp.app/user-documentation/tenant/standards/list-standards
     #>
 
     param($Tenant, $Settings)
+    $TestResult = Test-CIPPStandardLicense -StandardName 'DisableOutlookAddins' -TenantFilter $Tenant -RequiredCapabilities @('EXCHANGE_S_STANDARD', 'EXCHANGE_S_ENTERPRISE', 'EXCHANGE_LITE') #No Foundation because that does not allow powershell access
+
+    if ($TestResult -eq $false) {
+        Write-Host "We're exiting as the correct license is not present for this standard."
+        return $true
+    } #we're done.
     ##$Rerun -Type Standard -Tenant $Tenant -Settings $Settings 'DisableOutlookAddins'
 
     $CurrentInfo = New-ExoRequest -tenantid $Tenant -cmdlet 'Get-RoleAssignmentPolicy' | Where-Object { $_.IsDefault -eq $true }
@@ -47,8 +53,8 @@ function Invoke-CIPPStandardDisableOutlookAddins {
 
             foreach ($Role in $RolesToRemove) {
                 try {
-                    New-ExoRequest -tenantid $Tenant -cmdlet 'Get-ManagementRoleAssignment' -cmdparams @{ RoleAssignee = $CurrentInfo.Identity; Role = $Role } | ForEach-Object {
-                        New-ExoRequest -tenantid $Tenant -cmdlet 'Remove-ManagementRoleAssignment' -cmdparams @{ Identity = $_.Guid; Confirm = $false } -UseSystemMailbox $true
+                    New-ExoRequest -tenantid $Tenant -cmdlet 'Get-ManagementRoleAssignment' -cmdParams @{ RoleAssignee = $CurrentInfo.Identity; Role = $Role } | ForEach-Object {
+                        New-ExoRequest -tenantid $Tenant -cmdlet 'Remove-ManagementRoleAssignment' -cmdParams @{ Identity = $_.Guid; Confirm = $false } -UseSystemMailbox $true
                         Write-LogMessage -API 'Standards' -tenant $tenant -message "Disabled Outlook add-in role: $Role" -sev Debug
                     }
                 } catch {

@@ -33,11 +33,17 @@ Function Invoke-CIPPStandardTeamsMessagingPolicy {
         UPDATECOMMENTBLOCK
             Run the Tools\Update-StandardsComments.ps1 script to update this comment block
     .LINK
-        https://docs.cipp.app/user-documentation/tenant/standards/list-standards/teams-standards#medium-impact
+        https://docs.cipp.app/user-documentation/tenant/standards/list-standards
     #>
     ##$Rerun -Type Standard -Tenant $Tenant -Settings $Settings 'TeamsMessagingPolicy'
 
     param($Tenant, $Settings)
+    $TestResult = Test-CIPPStandardLicense -StandardName 'TeamsMessagingPolicy' -TenantFilter $Tenant -RequiredCapabilities @('MCOSTANDARD', 'MCOEV', 'MCOIMP', 'TEAMS1','Teams_Room_Standard')
+
+    if ($TestResult -eq $false) {
+        Write-Host "We're exiting as the correct license is not present for this standard."
+        return $true
+    } #we're done.
     $CurrentState = New-TeamsRequest -TenantFilter $Tenant -Cmdlet 'Get-CsTeamsMessagingPolicy' -CmdParams @{Identity = 'Global' }
 
     if ($null -eq $Settings.AllowOwnerDeleteMessage) { $Settings.AllowOwnerDeleteMessage = $CurrentState.AllowOwnerDeleteMessage }
@@ -65,7 +71,7 @@ Function Invoke-CIPPStandardTeamsMessagingPolicy {
         if ($StateIsCorrect -eq $true) {
             Write-LogMessage -API 'Standards' -tenant $Tenant -message 'Global Teams Messaging policy already configured.' -sev Info
         } else {
-            $cmdparams = @{
+            $cmdParams = @{
                 Identity                                     = 'Global'
                 AllowOwnerDeleteMessage                      = $Settings.AllowOwnerDeleteMessage
                 AllowUserDeleteMessage                       = $Settings.AllowUserDeleteMessage
@@ -79,7 +85,7 @@ Function Invoke-CIPPStandardTeamsMessagingPolicy {
             }
 
             try {
-                New-TeamsRequest -TenantFilter $Tenant -Cmdlet 'Set-CsTeamsMessagingPolicy' -CmdParams $cmdparams
+                New-TeamsRequest -TenantFilter $Tenant -Cmdlet 'Set-CsTeamsMessagingPolicy' -CmdParams $cmdParams
                 Write-LogMessage -API 'Standards' -tenant $Tenant -message 'Updated global Teams messaging policy' -sev Info
             } catch {
                 $ErrorMessage = Get-NormalizedError -Message $_.Exception.Message

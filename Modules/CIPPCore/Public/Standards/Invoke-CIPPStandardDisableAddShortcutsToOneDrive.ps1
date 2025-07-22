@@ -25,18 +25,19 @@ function Invoke-CIPPStandardDisableAddShortcutsToOneDrive {
         UPDATECOMMENTBLOCK
             Run the Tools\Update-StandardsComments.ps1 script to update this comment block
     .LINK
-        https://docs.cipp.app/user-documentation/tenant/standards/list-standards/sharepoint-standards#medium-impact
+        https://docs.cipp.app/user-documentation/tenant/standards/list-standards
     #>
 
     param($Tenant, $Settings)
+    $TestResult = Test-CIPPStandardLicense -StandardName 'DisableAddShortcutsToOneDrive' -TenantFilter $Tenant -RequiredCapabilities @('SHAREPOINTWAC', 'SHAREPOINTSTANDARD', 'SHAREPOINTENTERPRISE', 'ONEDRIVE_BASIC', 'ONEDRIVE_ENTERPRISE')
     ##$Rerun -Type Standard -Tenant $Tenant -Settings $Settings 'DisableAddShortcutsToOneDrive'
 
-    $CurrentState = Get-CIPPSPOTenant -TenantFilter $Tenant | Select-Object _ObjectIdentity_, TenantFilter, DisableAddToOneDrive
+    if ($TestResult -eq $false) {
+        Write-Host "We're exiting as the correct license is not present for this standard."
+        return $true
+    } #we're done.
 
-    if ($Settings.report -eq $true) {
-        Set-CIPPStandardsCompareField -FieldName 'standards.DisableAddShortcutsToOneDrive' -FieldValue $CurrentState.DisableAddToOneDrive -TenantFilter $Tenant
-        Add-CIPPBPAField -FieldName 'OneDriveAddShortcutButtonDisabled' -FieldValue $CurrentState.DisableAddToOneDrive -StoreAs bool -Tenant $Tenant
-    }
+    $CurrentState = Get-CIPPSPOTenant -TenantFilter $Tenant | Select-Object _ObjectIdentity_, TenantFilter, DisableAddToOneDrive
 
     # Input validation
     $StateValue = $Settings.state.value ?? $Settings.state
@@ -48,6 +49,16 @@ function Invoke-CIPPStandardDisableAddShortcutsToOneDrive {
     $WantedState = [System.Convert]::ToBoolean($StateValue)
     $StateIsCorrect = if ($CurrentState.DisableAddToOneDrive -eq $WantedState) { $true } else { $false }
     $HumanReadableState = if ($WantedState -eq $true) { 'disabled' } else { 'enabled' }
+
+    if ($Settings.report -eq $true) {
+        if ($StateIsCorrect -eq $true) {
+            $FieldValue = $true
+        } else {
+            $FieldValue = $CurrentState | Select-Object -Property DisableAddToOneDrive
+        }
+        Set-CIPPStandardsCompareField -FieldName 'standards.DisableAddShortcutsToOneDrive' -FieldValue $FieldValue -TenantFilter $Tenant
+        Add-CIPPBPAField -FieldName 'OneDriveAddShortcutButtonDisabled' -FieldValue $CurrentState.DisableAddToOneDrive -StoreAs bool -Tenant $Tenant
+    }
 
     If ($Settings.remediate -eq $true) {
         Write-Host 'Time to remediate'

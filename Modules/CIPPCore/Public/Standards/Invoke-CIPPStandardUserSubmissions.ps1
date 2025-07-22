@@ -26,10 +26,16 @@ function Invoke-CIPPStandardUserSubmissions {
         UPDATECOMMENTBLOCK
             Run the Tools\Update-StandardsComments.ps1 script to update this comment block
     .LINK
-        https://docs.cipp.app/user-documentation/tenant/standards/list-standards/exchange-standards#medium-impact
+        https://docs.cipp.app/user-documentation/tenant/standards/list-standards
     #>
 
     param($Tenant, $Settings)
+    $TestResult = Test-CIPPStandardLicense -StandardName 'UserSubmissions' -TenantFilter $Tenant -RequiredCapabilities @('EXCHANGE_S_STANDARD', 'EXCHANGE_S_ENTERPRISE', 'EXCHANGE_LITE') #No Foundation because that does not allow powershell access
+
+    if ($TestResult -eq $false) {
+        Write-Host "We're exiting as the correct license is not present for this standard."
+        return $true
+    } #we're done.
     ##$Rerun -Type Standard -Tenant $Tenant -Settings $Settings 'UserSubmissions'
 
     # Get state value using null-coalescing operator
@@ -93,7 +99,7 @@ function Invoke-CIPPStandardUserSubmissions {
             Write-LogMessage -API 'Standards' -tenant $Tenant -message 'User Submission policy is already configured' -sev Info
         } else {
             if ($state -eq 'enable') {
-                if (([string]::IsNullOrWhiteSpace())) {
+                if (([string]::IsNullOrWhiteSpace($Email))) {
                     $PolicyParams = @{
                         EnableReportToMicrosoft          = $true
                         ReportJunkToCustomizedAddress    = $false
@@ -196,6 +202,8 @@ function Invoke-CIPPStandardUserSubmissions {
         if ($StateIsCorrect) {
             $FieldValue = $true
         } else {
+            $PolicyState = $PolicyState | Select-Object EnableReportToMicrosoft, ReportJunkToCustomizedAddress, ReportNotJunkToCustomizedAddress, ReportPhishToCustomizedAddress, ReportJunkAddresses, ReportNotJunkAddresses, ReportPhishAddresses
+            $RuleState = $RuleState | Select-Object State, SentTo
             $FieldValue = @{ PolicyState = $PolicyState; RuleState = $RuleState }
         }
 
